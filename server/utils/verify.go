@@ -16,4 +16,6 @@ var (
 	OldAuthorityVerify     = Rules{"OldAuthorityId": {NotEmpty()}}
 	ChangePasswordVerify   = Rules{"Password": {NotEmpty()}, "NewPassword": {NotEmpty()}}
 	SetUserAuthorityVerify = Rules{"AuthorityId": {NotEmpty()}}
+	CreateSongVerify       = Rules{"Name": {NotEmpty()}, "Type": {NotEmpty()}}
+	CreateSingerVerify     = Rules{"Name": {NotEmpty()}}
 )

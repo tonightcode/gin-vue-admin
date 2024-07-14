@@ -22,31 +22,41 @@
         />
         <el-table-column
           align="left"
-          label="接入日期"
+          label="名称"
+          prop="name"
+          width="120"
+        />
+        <el-table-column
+          align="left"
+          label="歌手"
+          prop="singer.name"
+          width="120"
+        />
+        <el-table-column
+          align="left"
+          label="类型"
+          prop="type"
+          width="120"
+        >
+          <template #default="scope">
+            <span>{{ getTypeText(scope.row.type) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column
+          align="left"
+          label="播放"
+          prop="url"
+          width="120"
+        />
+        <el-table-column
+          align="left"
+          label="创建日期"
           width="180"
         >
           <template #default="scope">
             <span>{{ formatDate(scope.row.CreatedAt) }}</span>
           </template>
         </el-table-column>
-        <el-table-column
-          align="left"
-          label="姓名"
-          prop="customerName"
-          width="120"
-        />
-        <el-table-column
-          align="left"
-          label="电话"
-          prop="customerPhoneData"
-          width="120"
-        />
-        <el-table-column
-          align="left"
-          label="接入人ID"
-          prop="sysUserId"
-          width="120"
-        />
         <el-table-column
           align="left"
           label="操作"
@@ -58,7 +68,7 @@
               link
               icon="edit"
               @click="updateCustomer(scope.row)"
-            >编辑</el-button>
+            >变更</el-button>
             <el-popover
               v-model="scope.row.visible"
               placement="top"
@@ -103,23 +113,65 @@
     <el-dialog
       v-model="dialogFormVisible"
       :before-close="closeDialog"
-      title="客户"
+      title="音乐"
     >
       <el-form
-        :inline="true"
         :model="form"
         label-width="80px"
+        :rules="rules"
       >
-        <el-form-item label="客户名">
+        <el-form-item
+          label="类型"
+          :rules="typeRules"
+        >
+          <el-select
+            v-model="form.type"
+            placeholder="请选择"
+          >
+            <el-option
+              v-for="t in formtypes"
+              :key="t.value"
+              :label="t.label"
+              :value="t.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item
+          label="名称"
+          :rules="nameRules"
+        >
           <el-input
-            v-model="form.customerName"
+            v-model="form.name"
             autocomplete="off"
           />
         </el-form-item>
-        <el-form-item label="客户电话">
+        <el-form-item label="歌手">
+          <el-select
+            v-model="form.singerid"
+            multiple
+            filterable
+            allow-create
+            default-first-option
+            placeholder="请选择"
+          >
+            <el-option
+              v-for="item in singerData"
+              :key="item.ID"
+              :label="item.name"
+              :value="item.ID"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="歌词">
           <el-input
-            v-model="form.customerPhoneData"
+            v-model="form.lyric"
+            type="textarea"
             autocomplete="off"
+          />
+        </el-form-item>
+        <el-form-item label="附件">
+          <upload-song
+            v-model:songCommon="songCommon"
           />
         </el-form-item>
       </el-form>
@@ -138,31 +190,54 @@
 
 <script setup>
 import {
-  createExaCustomer,
-  updateExaCustomer,
-  deleteExaCustomer,
-  getExaCustomer,
-  getExaCustomerList
-} from '@/api/customer'
+  createSong,
+  updateSong,
+  deleteSong,
+  getSong,
+  getSongList
+} from '@/api/song'
+import { getSingerList } from '@/api/singer'
 import WarningBar from '@/components/warningBar/warningBar.vue'
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { formatDate } from '@/utils/format'
+import UploadSong from '@/components/upload/song.vue'
 
 defineOptions({
-  name: 'Customer'
+  name: 'Song'
 })
 
 const form = ref({
-  customerName: '',
-  customerPhoneData: ''
+  name: '',
+  url: '',
+  singerid: 0,
+  lyric: '',
+  type: 1
 })
+
+const nameRules = [
+  { required: true, message: '名称不能为空', trigger: 'blur' }
+]
+
+const typeRules = [
+  { required: true, message: '名称不能为空', trigger: 'blur' }
+]
 
 const page = ref(1)
 const total = ref(0)
 const pageSize = ref(10)
 const tableData = ref([])
+const singerData = ref([])
 
+const songCommon = ref('')
+
+const formtypes = [{
+  value: 1,
+  label: '歌曲'
+}, {
+  value: 2,
+  label: '其他'
+}]
 // 分页
 const handleSizeChange = (val) => {
   pageSize.value = val
@@ -176,12 +251,16 @@ const handleCurrentChange = (val) => {
 
 // 查询
 const getTableData = async() => {
-  const table = await getExaCustomerList({ page: page.value, pageSize: pageSize.value })
+  const table = await getSongList({ page: page.value, pageSize: pageSize.value })
+  const singers = await getSingerList({ page: page.value, pageSize: pageSize.value })
   if (table.code === 0) {
     tableData.value = table.data.list
     total.value = table.data.total
     page.value = table.data.page
     pageSize.value = table.data.pageSize
+  }
+  if (singers.code === 0) {
+    singerData.value = singers.data.list
   }
 }
 
@@ -190,7 +269,7 @@ getTableData()
 const dialogFormVisible = ref(false)
 const type = ref('')
 const updateCustomer = async(row) => {
-  const res = await getExaCustomer({ ID: row.ID })
+  const res = await getSong({ ID: row.ID })
   type.value = 'update'
   if (res.code === 0) {
     form.value = res.data.customer
@@ -200,13 +279,16 @@ const updateCustomer = async(row) => {
 const closeDialog = () => {
   dialogFormVisible.value = false
   form.value = {
-    customerName: '',
-    customerPhoneData: ''
+    name: '',
+    url: '',
+    singerid: 0,
+    lyric: '',
+    type: 0
   }
 }
 const deleteCustomer = async(row) => {
   row.visible = false
-  const res = await deleteExaCustomer({ ID: row.ID })
+  const res = await deleteSong({ ID: row.ID })
   if (res.code === 0) {
     ElMessage({
       type: 'success',
@@ -222,13 +304,13 @@ const enterDialog = async() => {
   let res
   switch (type.value) {
     case 'create':
-      res = await createExaCustomer(form.value)
+      res = await createSong(form.value)
       break
     case 'update':
-      res = await updateExaCustomer(form.value)
+      res = await updateSong(form.value)
       break
     default:
-      res = await createExaCustomer(form.value)
+      res = await createSong(form.value)
       break
   }
 
@@ -242,7 +324,15 @@ const openDialog = () => {
   dialogFormVisible.value = true
 }
 
+const getTypeText = (type) => {
+  if (type === 1) {
+    return '歌曲'
+  } else if (type === 2) {
+    return '其他'
+  } else {
+    return '未知'
+  }
+}
+
 </script>
-
-
 <style></style>

@@ -1,6 +1,9 @@
 package initialize
 
 import (
+	"net/http"
+	"os"
+
 	"github.com/flipped-aurora/gin-vue-admin/server/docs"
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/middleware"
@@ -8,8 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-	"net/http"
-	"os"
 )
 
 type justFilesFilesystem struct {
@@ -42,6 +43,7 @@ func Routers() *gin.Engine {
 	InstallPlugin(Router) // 安装插件
 	systemRouter := router.RouterGroupApp.System
 	exampleRouter := router.RouterGroupApp.Example
+	musicRouter := router.RouterGroupApp.Music
 	// 如果想要不使用nginx代理前端网页，可以修改 web/.env.production 下的
 	// VUE_APP_BASE_API = /
 	// VUE_APP_BASE_PATH = http://localhost
@@ -90,7 +92,8 @@ func Routers() *gin.Engine {
 		systemRouter.InitSysExportTemplateRouter(PrivateGroup)      // 导出模板
 		exampleRouter.InitCustomerRouter(PrivateGroup)              // 客户路由
 		exampleRouter.InitFileUploadAndDownloadRouter(PrivateGroup) // 文件上传下载功能路由
-
+		musicRouter.InitSongRouter(PrivateGroup)                    // 音乐路由
+		musicRouter.InitSingerRouter(PrivateGroup)                  // 音乐路由
 	}
 
 	global.GVA_LOG.Info("router register success")
