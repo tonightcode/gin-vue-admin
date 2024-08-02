@@ -116,20 +116,20 @@
       title="音乐"
     >
       <el-form
+        ref="formRef"
         :model="form"
         label-width="80px"
-        :rules="rules"
+        :rules="formRules"
       >
         <el-form-item
           label="类型"
-          :rules="typeRules"
+          prop="type"
         >
           <el-select
             v-model="form.type"
-            placeholder="请选择"
           >
             <el-option
-              v-for="t in formtypes"
+              v-for="t in songTypes"
               :key="t.value"
               :label="t.label"
               :value="t.value"
@@ -138,7 +138,7 @@
         </el-form-item>
         <el-form-item
           label="名称"
-          :rules="nameRules"
+          prop="name"
         >
           <el-input
             v-model="form.name"
@@ -207,6 +207,23 @@ defineOptions({
   name: 'Song'
 })
 
+const page = ref(1)
+const total = ref(0)
+const pageSize = ref(10)
+const tableData = ref([])
+const singerData = ref([])
+const formRef = ref(null)
+
+const songCommon = ref('')
+
+const songTypes = ref([{
+  value: 1,
+  label: '歌曲'
+}, {
+  value: 2,
+  label: '其他'
+}])
+
 const form = ref({
   name: '',
   url: '',
@@ -215,29 +232,11 @@ const form = ref({
   type: 1
 })
 
-const nameRules = [
-  { required: true, message: '名称不能为空', trigger: 'blur' }
-]
+const formRules = {
+  name: [{ required: true, message: '名称不能为空', trigger: 'blur' }],
+  type: [{ required: true, message: '类型不能为空', trigger: 'blur' }]
+}
 
-const typeRules = [
-  { required: true, message: '名称不能为空', trigger: 'blur' }
-]
-
-const page = ref(1)
-const total = ref(0)
-const pageSize = ref(10)
-const tableData = ref([])
-const singerData = ref([])
-
-const songCommon = ref('')
-
-const formtypes = [{
-  value: 1,
-  label: '歌曲'
-}, {
-  value: 2,
-  label: '其他'
-}]
 // 分页
 const handleSizeChange = (val) => {
   pageSize.value = val
@@ -272,7 +271,7 @@ const updateCustomer = async(row) => {
   const res = await getSong({ ID: row.ID })
   type.value = 'update'
   if (res.code === 0) {
-    form.value = res.data.customer
+    form.value = res.data.song
     dialogFormVisible.value = true
   }
 }
@@ -283,7 +282,7 @@ const closeDialog = () => {
     url: '',
     singerid: 0,
     lyric: '',
-    type: 0
+    type: 1
   }
 }
 const deleteCustomer = async(row) => {
@@ -301,23 +300,30 @@ const deleteCustomer = async(row) => {
   }
 }
 const enterDialog = async() => {
-  let res
-  switch (type.value) {
-    case 'create':
-      res = await createSong(form.value)
-      break
-    case 'update':
-      res = await updateSong(form.value)
-      break
-    default:
-      res = await createSong(form.value)
-      break
-  }
+  formRef.value.validate(async(valid) => {
+    if (!valid) return
+    let res
+    switch (type.value) {
+      case 'create':
+        res = await createSong(form.value)
+        break
+      case 'update':
+        res = await updateSong(form.value)
+        break
+      default:
+        res = await createSong(form.value)
+        break
+    }
 
-  if (res.code === 0) {
-    closeDialog()
-    getTableData()
-  }
+    if (res.code === 0) {
+      ElMessage({
+        type: 'success',
+        message: '操作成功'
+      })
+      closeDialog()
+      getTableData()
+    }
+  })
 }
 const openDialog = () => {
   type.value = 'create'

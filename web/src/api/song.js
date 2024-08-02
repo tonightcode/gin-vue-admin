@@ -25,7 +25,7 @@ export const createSong = (data) => {
 // @Router /song/song [put]
 export const updateSong = (data) => {
   return service({
-    url: '/song/song',
+    url: '/song/updateSong',
     method: 'put',
     data
   })

@@ -99,7 +99,15 @@ func (e *SongApi) UpdateSong(c *gin.Context) {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
-	err = utils.Verify(song.GVA_MODEL, utils.IdVerify)
+	type songV struct {
+		Name string
+		Type uint
+	}
+	song1 := songV{
+		Name: song.Name,
+		Type: song.Type,
+	}
+	err = utils.Verify(song1, utils.CreateSongVerify)
 	if err != nil {
 		response.FailWithMessage(err.Error(), c)
 		return
