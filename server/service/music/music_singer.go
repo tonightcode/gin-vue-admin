@@ -14,9 +14,24 @@ type SingerService struct{}
 //@param: e model.Singer
 //@return: err error
 
-func (exa *SingerService) CreateSinger(e music.MusicSinger) (err error) {
+func (exa *SingerService) CreateSinger(e music.MusicSinger) (newId uint, err error) {
 	err = global.GVA_DB.Create(&e).Error
-	return err
+	return e.ID, err
+}
+
+func (exa *SingerService) CreateSingerByName(name string) (singerid uint, err error) {
+	var singer music.MusicSinger
+	err = global.GVA_DB.Where("name = ?", name).First(&singer).Error
+	if err != nil {
+		singer.Name = name
+		newId, err := exa.CreateSinger(singer)
+		if err != nil {
+			return 0, err
+		}
+		return newId, nil
+	} else {
+		return singer.ID, nil
+	}
 }
 
 //@author: [piexlmax](https://github.com/piexlmax)

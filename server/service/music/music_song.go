@@ -67,7 +67,9 @@ func (exa *SongService) GetSongInfoList(info request.PageInfo) (list interface{}
 	if err != nil {
 		return SongList, total, err
 	} else {
-		err = db.Preload("Singer").Limit(limit).Offset(offset).Find(&SongList).Error
+
+		db.Raw("SELECT a.*, GROUP_CONCAT(CONCAT(b.id, '-', b.NAME)) AS SingerNames FROM music_songs a LEFT JOIN music_singers b ON FIND_IN_SET(b.id, a.singerids) GROUP BY a.id").Scan(&songs)
+		err = db.Limit(limit).Offset(offset).Find(&SongList).Error
 	}
 	return SongList, total, err
 }

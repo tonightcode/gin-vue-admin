@@ -147,7 +147,7 @@
         </el-form-item>
         <el-form-item label="歌手">
           <el-select
-            v-model="form.singerid"
+            v-model="form.singerids"
             multiple
             filterable
             allow-create
@@ -227,7 +227,7 @@ const songTypes = ref([{
 const form = ref({
   name: '',
   url: '',
-  singerid: 0,
+  singerids: 0,
   lyric: '',
   type: 1
 })
@@ -280,7 +280,7 @@ const closeDialog = () => {
   form.value = {
     name: '',
     url: '',
-    singerid: 0,
+    singerids: 0,
     lyric: '',
     type: 1
   }

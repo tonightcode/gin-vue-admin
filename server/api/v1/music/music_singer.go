@@ -36,7 +36,7 @@ func (e *SingerApi) CreateSinger(c *gin.Context) {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
-	err = singerService.CreateSinger(singer)
+	_, err = singerService.CreateSinger(singer)
 	if err != nil {
 		global.GVA_LOG.Error("创建失败!", zap.Error(err))
 		response.FailWithMessage("创建失败", c)
