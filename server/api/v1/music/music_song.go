@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/common/request"
@@ -130,21 +131,67 @@ func (e *SongApi) DeleteSong(c *gin.Context) {
 // @Success   200   {object}  response.Response{msg=string}  "更新客户信息"
 // @Router    /customer/customer [put]
 func (e *SongApi) UpdateSong(c *gin.Context) {
-	var song music.MusicSong
-	err := c.ShouldBindJSON(&song)
+	type SongRequery struct {
+		Name      string
+		Url       string
+		Type      uint
+		Singerids []interface{}
+		Lyric     string
+		ID        uint
+		CreatedAt time.Time
+		UpdatedAt time.Time
+	}
+	var songRequery SongRequery
+	err := c.ShouldBindJSON(&songRequery)
 	if err != nil {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
-	err = utils.Verify(song.GVA_MODEL, utils.IdVerify)
+	err = utils.Verify(songRequery, utils.CreateSongVerify)
 	if err != nil {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
-	err = utils.Verify(song, utils.CreateSongVerify)
-	if err != nil {
-		response.FailWithMessage(err.Error(), c)
-		return
+	var singerids []string
+	for k, v := range songRequery.Singerids {
+		switch v.(type) {
+		case int:
+			fmt.Println("Value is not of type int")
+		case string:
+			var singer music.MusicSinger
+			singer.Name = v.(string)
+			newSingrId, err := singerService.CreateSingerByName(singer.Name)
+			if err != nil {
+				global.GVA_LOG.Error("创建失败!", zap.Error(err))
+				response.FailWithMessage("创建失败", c)
+				return
+			}
+			songRequery.Singerids[k] = newSingrId
+		default:
+			fmt.Println("Value is not of type int")
+		}
+	}
+	for _, num := range songRequery.Singerids {
+		switch val := num.(type) {
+		case float64:
+			singerids = append(singerids, strconv.FormatFloat(val, 'f', -1, 64))
+		case uint:
+			singerids = append(singerids, strconv.FormatUint(uint64(val), 10))
+		default:
+			fmt.Println("Unsupported type")
+		}
+	}
+	song := music.MusicSong{
+		GVA_MODEL: global.GVA_MODEL{
+			ID:        songRequery.ID,
+			UpdatedAt: songRequery.UpdatedAt,
+			CreatedAt: songRequery.CreatedAt,
+		},
+		Name:      songRequery.Name,
+		Url:       songRequery.Url,
+		Lyric:     songRequery.Lyric,
+		Type:      songRequery.Type,
+		Singerids: strings.Join(singerids, ","),
 	}
 	err = songService.UpdateSong(&song)
 	if err != nil {

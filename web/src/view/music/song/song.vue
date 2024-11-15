@@ -22,6 +22,12 @@
         />
         <el-table-column
           align="left"
+          label="ID"
+          prop="ID"
+          width="50"
+        />
+        <el-table-column
+          align="left"
           label="名称"
           prop="name"
           width="120"
@@ -29,7 +35,7 @@
         <el-table-column
           align="left"
           label="歌手"
-          prop="singer.name"
+          prop="singers"
           width="120"
         />
         <el-table-column
@@ -257,6 +263,11 @@ const getTableData = async() => {
     total.value = table.data.total
     page.value = table.data.page
     pageSize.value = table.data.pageSize
+    // 遍历 tableData 并打印每个元素
+    tableData.value.forEach((item) => {
+      item.singerids = item.singerids.split(',')
+      item.singers = item.singers.split(',').map(singer => singer.split('-')[1]).join(',')
+    })
   }
   if (singers.code === 0) {
     singerData.value = singers.data.list
@@ -271,6 +282,8 @@ const updateCustomer = async(row) => {
   const res = await getSong({ ID: row.ID })
   type.value = 'update'
   if (res.code === 0) {
+    res.data.song.singerids = res.data.song.singerids.split(',').map(Number)
+    console.log(res.data.song)
     form.value = res.data.song
     dialogFormVisible.value = true
   }
@@ -287,17 +300,28 @@ const closeDialog = () => {
 }
 const deleteCustomer = async(row) => {
   row.visible = false
-  const res = await deleteSong({ ID: row.ID })
-  if (res.code === 0) {
-    ElMessage({
-      type: 'success',
-      message: '删除成功'
-    })
-    if (tableData.value.length === 1 && page.value > 1) {
-      page.value--
+  await this.$confirm('此操作将永久删除该文件, 是否继续?', '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(() => {
+    const res = deleteSong({ ID: row.ID })
+    if (res.code === 0) {
+      ElMessage({
+        type: 'success',
+        message: '删除成功'
+      })
+      if (tableData.value.length === 1 && page.value > 1) {
+        page.value--
+      }
+      getTableData()
     }
-    getTableData()
-  }
+  }).catch(() => {
+    this.$message({
+      type: 'info',
+      message: '已取消删除'
+    })
+  })
 }
 const enterDialog = async() => {
   formRef.value.validate(async(valid) => {

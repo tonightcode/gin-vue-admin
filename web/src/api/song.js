@@ -26,7 +26,7 @@ export const createSong = (data) => {
 export const updateSong = (data) => {
   return service({
     url: '/song/updateSong',
-    method: 'put',
+    method: 'post',
     data
   })
 }
@@ -41,7 +41,7 @@ export const updateSong = (data) => {
 // @Router /song/song [delete]
 export const deleteSong = (data) => {
   return service({
-    url: '/song/song',
+    url: '/song/deleteSong',
     method: 'delete',
     data
   })

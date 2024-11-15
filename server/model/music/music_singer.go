@@ -7,5 +7,5 @@ import (
 type MusicSinger struct {
 	global.GVA_MODEL
 	Name string `json:"name" form:"name" gorm:"comment:名称"`
-	Head string `json:"url" form:"head" gorm:"comment:头像"`
+	Head string `json:"head" form:"head" gorm:"comment:头像"`
 }

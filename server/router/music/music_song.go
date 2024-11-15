@@ -12,10 +12,10 @@ func (s *SongRouter) InitSongRouter(Router *gin.RouterGroup) {
 	songRouter := Router.Group("song").Use(middleware.OperationRecord())
 	songApi := v1.ApiGroupApp.MusicApiGroup.SongApi
 	{
-		songRouter.GET("getSong", songApi.GetSong)         // 获取
-		songRouter.GET("getSongList", songApi.GetSongList) // 获取列表
-		songRouter.POST("createSong", songApi.CreateSong)  // 创建
-		songRouter.POST("deleteSong", songApi.DeleteSong)  // 删除
-		songRouter.PUT("updateSong", songApi.UpdateSong)   // 更新
+		songRouter.GET("getSong", songApi.GetSong)          // 获取
+		songRouter.GET("getSongList", songApi.GetSongList)  // 获取列表
+		songRouter.POST("createSong", songApi.CreateSong)   // 创建
+		songRouter.DELETE("deleteSong", songApi.DeleteSong) // 删除
+		songRouter.POST("updateSong", songApi.UpdateSong)   // 更新
 	}
 }

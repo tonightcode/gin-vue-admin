@@ -62,14 +62,17 @@ func (exa *SongService) GetSongInfoList(info request.PageInfo) (list interface{}
 	limit := info.PageSize
 	offset := info.PageSize * (info.Page - 1)
 	db := global.GVA_DB.Model(&music.MusicSong{})
-	var SongList []music.MusicSong
+	type SongList struct {
+		music.MusicSong
+		Singers string `json:"singers"`
+	}
+	var songList []SongList
 	err = db.Count(&total).Error
 	if err != nil {
-		return SongList, total, err
+		return songList, total, err
 	} else {
-
-		db.Raw("SELECT a.*, GROUP_CONCAT(CONCAT(b.id, '-', b.NAME)) AS SingerNames FROM music_songs a LEFT JOIN music_singers b ON FIND_IN_SET(b.id, a.singerids) GROUP BY a.id").Scan(&songs)
-		err = db.Limit(limit).Offset(offset).Find(&SongList).Error
+		db.Raw("SELECT a.*, GROUP_CONCAT(CONCAT(b.id, '-', b.NAME)) AS singers FROM music_songs a LEFT JOIN music_singers b ON FIND_IN_SET(b.id, a.singerids) WHERE a.deleted_at IS NULL GROUP BY a.id LIMIT ? OFFSET ?", limit, offset).Scan(&songList)
+		// err = db.Limit(limit).Offset(offset).Find(&SongList).Error
 	}
-	return SongList, total, err
+	return songList, total, err
 }
