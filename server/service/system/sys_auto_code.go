@@ -8,7 +8,6 @@ import (
 	"io"
 	"mime/multipart"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -30,7 +29,8 @@ import (
 const (
 	autoPath           = "autocode_template/"
 	autocodePath       = "resource/autocode_template"
-	plugPath           = "resource/plug_template"
+	plugServerPath     = "resource/plug_template/server"
+	plugWebPath        = "resource/plug_template/web"
 	packageService     = "service/%s/enter.go"
 	packageServiceName = "service"
 	packageRouter      = "router/%s/enter.go"
@@ -254,7 +254,7 @@ func makeDictTypes(autoCode *system.AutoCodeStruct) {
 // @param: model.AutoCodeStruct
 // @return: err error
 
-func (autoCodeService *AutoCodeService) CreateTemp(autoCode system.AutoCodeStruct, ids ...uint) (err error) {
+func (autoCodeService *AutoCodeService) CreateTemp(autoCode system.AutoCodeStruct, menuID uint, ids ...uint) (err error) {
 	makeDictTypes(&autoCode)
 	for i := range autoCode.Fields {
 		if autoCode.Fields[i].FieldType == "time.Time" {
@@ -390,7 +390,7 @@ func (autoCodeService *AutoCodeService) CreateTemp(autoCode system.AutoCodeStruc
 			return err
 		}
 	}
-	if autoCode.AutoMoveFile || autoCode.AutoCreateApiToSql {
+	if autoCode.AutoMoveFile || autoCode.AutoCreateApiToSql || autoCode.AutoCreateMenuToSql {
 		if autoCode.TableName != "" {
 			err = AutoCodeHistoryServiceApp.CreateAutoCodeHistory(
 				string(meta),
@@ -402,6 +402,7 @@ func (autoCodeService *AutoCodeService) CreateTemp(autoCode system.AutoCodeStruc
 				idBf.String(),
 				autoCode.Package,
 				autoCode.BusinessDB,
+				menuID,
 			)
 		} else {
 			err = AutoCodeHistoryServiceApp.CreateAutoCodeHistory(
@@ -414,6 +415,7 @@ func (autoCodeService *AutoCodeService) CreateTemp(autoCode system.AutoCodeStruc
 				idBf.String(),
 				autoCode.Package,
 				autoCode.BusinessDB,
+				menuID,
 			)
 		}
 	}
@@ -497,13 +499,13 @@ func (autoCodeService *AutoCodeService) addAutoMoveFile(data *tplData) {
 	} else if strings.Contains(fileSlice[1], "web") {
 		if strings.Contains(fileSlice[n-1], "js") {
 			data.autoMoveFilePath = filepath.Join(global.GVA_CONFIG.AutoCode.Root,
-				global.GVA_CONFIG.AutoCode.Web, global.GVA_CONFIG.AutoCode.WApi, base)
+				global.GVA_CONFIG.AutoCode.Web, global.GVA_CONFIG.AutoCode.WApi, data.autoPackage, base)
 		} else if strings.Contains(fileSlice[n-2], "form") {
 			data.autoMoveFilePath = filepath.Join(global.GVA_CONFIG.AutoCode.Root,
-				global.GVA_CONFIG.AutoCode.Web, global.GVA_CONFIG.AutoCode.WForm, filepath.Base(filepath.Dir(filepath.Dir(data.autoCodePath))), strings.TrimSuffix(base, filepath.Ext(base))+"Form.vue")
+				global.GVA_CONFIG.AutoCode.Web, global.GVA_CONFIG.AutoCode.WForm, data.autoPackage, filepath.Base(filepath.Dir(filepath.Dir(data.autoCodePath))), strings.TrimSuffix(base, filepath.Ext(base))+"Form.vue")
 		} else if strings.Contains(fileSlice[n-2], "table") {
 			data.autoMoveFilePath = filepath.Join(global.GVA_CONFIG.AutoCode.Root,
-				global.GVA_CONFIG.AutoCode.Web, global.GVA_CONFIG.AutoCode.WTable, filepath.Base(filepath.Dir(filepath.Dir(data.autoCodePath))), base)
+				global.GVA_CONFIG.AutoCode.Web, global.GVA_CONFIG.AutoCode.WTable, data.autoPackage, filepath.Base(filepath.Dir(filepath.Dir(data.autoCodePath))), base)
 		}
 	}
 }
@@ -568,6 +570,21 @@ func (autoCodeService *AutoCodeService) AutoCreateApi(a *system.AutoCodeStruct) 
 		return nil
 	})
 	return ids, err
+}
+
+func (autoCodeService *AutoCodeService) AutoCreateMenu(a *system.AutoCodeStruct) (id uint, err error) {
+	var menu system.SysBaseMenu
+	err = global.GVA_DB.First(&menu, "name = ?", a.Abbreviation).Error
+	if err == nil {
+		return 0, errors.New("存在相同的菜单路由，请关闭自动创建菜单功能")
+	}
+	menu.ParentId = 0
+	menu.Name = a.Abbreviation
+	menu.Path = a.Abbreviation
+	menu.Meta.Title = a.Description
+	menu.Component = fmt.Sprintf("view/%s/%s/%s.vue", a.Package, a.PackageName, a.PackageName)
+	err = global.GVA_DB.Create(&menu).Error
+	return menu.ID, err
 }
 
 func (autoCodeService *AutoCodeService) getNeedList(autoCode *system.AutoCodeStruct) (dataList []tplData, fileList []string, needMkdir []string, err error) {
@@ -678,6 +695,19 @@ func (autoCodeService *AutoCodeService) CreatePackageTemp(packageName string) er
 		name: packageAPIName,
 		temp: string(subcontract.API),
 	}}
+
+	webTemp := []string{
+		filepath.Join(global.GVA_CONFIG.AutoCode.Root, global.GVA_CONFIG.AutoCode.Web, global.GVA_CONFIG.AutoCode.WApi),
+		filepath.Join(global.GVA_CONFIG.AutoCode.Root, global.GVA_CONFIG.AutoCode.Web, global.GVA_CONFIG.AutoCode.WForm),
+	}
+
+	for _, s := range webTemp {
+		err := os.MkdirAll(filepath.Join(s, packageName), 0755)
+		if err != nil {
+			return err
+		}
+	}
+
 	for i, s := range pendingTemp {
 		pendingTemp[i].path = filepath.Join(global.GVA_CONFIG.AutoCode.Root, global.GVA_CONFIG.AutoCode.Server, filepath.Clean(fmt.Sprintf(s.path, packageName)))
 	}
@@ -720,7 +750,19 @@ func (autoCodeService *AutoCodeService) CreatePackageTemp(packageName string) er
 func (autoCodeService *AutoCodeService) CreatePlug(plug system.AutoPlugReq) error {
 	// 检查列表参数是否有效
 	plug.CheckList()
-	tplFileList, _ := autoCodeService.GetAllTplFile(plugPath, nil)
+	err := autoCodeService.createPluginServer(plug)
+	if err != nil {
+		return err
+	}
+	err = autoCodeService.createPluginWeb(plug)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (autoCodeService *AutoCodeService) createPluginServer(plug system.AutoPlugReq) error {
+	tplFileList, _ := autoCodeService.GetAllTplFile(plugServerPath, nil)
 	for _, tpl := range tplFileList {
 		temp, err := template.ParseFiles(tpl)
 		if err != nil {
@@ -728,11 +770,41 @@ func (autoCodeService *AutoCodeService) CreatePlug(plug system.AutoPlugReq) erro
 			return err
 		}
 		pathArr := strings.SplitAfter(tpl, "/")
-		if strings.Index(pathArr[2], "tpl") < 0 {
-			dirPath := filepath.Join(global.GVA_CONFIG.AutoCode.Root, global.GVA_CONFIG.AutoCode.Server, fmt.Sprintf(global.GVA_CONFIG.AutoCode.SPlug, plug.Snake+"/"+pathArr[2]))
+		if strings.Index(pathArr[3], "tpl") < 0 {
+			dirPath := filepath.Join(global.GVA_CONFIG.AutoCode.Root, global.GVA_CONFIG.AutoCode.Server, fmt.Sprintf(global.GVA_CONFIG.AutoCode.SPlug, plug.Snake+"/"+pathArr[3]))
 			os.MkdirAll(dirPath, 0755)
 		}
-		file := filepath.Join(global.GVA_CONFIG.AutoCode.Root, global.GVA_CONFIG.AutoCode.Server, fmt.Sprintf(global.GVA_CONFIG.AutoCode.SPlug, plug.Snake+"/"+tpl[len(plugPath):len(tpl)-4]))
+		file := filepath.Join(global.GVA_CONFIG.AutoCode.Root, global.GVA_CONFIG.AutoCode.Server, fmt.Sprintf(global.GVA_CONFIG.AutoCode.SPlug, plug.Snake+"/"+tpl[len(plugServerPath):len(tpl)-4]))
+		f, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE, 0666)
+		if err != nil {
+			zap.L().Error("open file", zap.String("tpl", tpl), zap.Error(err), zap.Any("plug", plug))
+			return err
+		}
+		defer f.Close()
+
+		err = temp.Execute(f, plug)
+		if err != nil {
+			zap.L().Error("exec err", zap.String("tpl", tpl), zap.Error(err), zap.Any("plug", plug))
+			return err
+		}
+	}
+	return nil
+}
+
+func (autoCodeService *AutoCodeService) createPluginWeb(plug system.AutoPlugReq) error {
+	tplFileList, _ := autoCodeService.GetAllTplFile(plugWebPath, nil)
+	for _, tpl := range tplFileList {
+		temp, err := template.ParseFiles(tpl)
+		if err != nil {
+			zap.L().Error("parse err", zap.String("tpl", tpl), zap.Error(err))
+			return err
+		}
+		pathArr := strings.SplitAfter(tpl, "/")
+		if strings.Index(pathArr[3], "tpl") < 0 {
+			dirPath := filepath.Join(global.GVA_CONFIG.AutoCode.Root, global.GVA_CONFIG.AutoCode.Web, fmt.Sprintf(global.GVA_CONFIG.AutoCode.SPlug, plug.Snake+"/"+pathArr[3]))
+			os.MkdirAll(dirPath, 0755)
+		}
+		file := filepath.Join(global.GVA_CONFIG.AutoCode.Root, global.GVA_CONFIG.AutoCode.Web, fmt.Sprintf(global.GVA_CONFIG.AutoCode.SPlug, plug.Snake+"/"+tpl[len(plugWebPath):len(tpl)-4]))
 		f, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE, 0666)
 		if err != nil {
 			zap.L().Error("open file", zap.String("tpl", tpl), zap.Error(err), zap.Any("plug", plug))
@@ -787,10 +859,10 @@ func (autoCodeService *AutoCodeService) InstallPlugin(file *multipart.FileHeader
 			continue
 		}
 		if pathArr[2]+"/"+pathArr[3] == `server/plugin` && len(serverPlugin) == 0 {
-			serverPlugin = path.Join(pathArr[0], pathArr[1], pathArr[2], pathArr[3])
+			serverPlugin = filepath.Join(pathArr[0], pathArr[1], pathArr[2], pathArr[3])
 		}
 		if pathArr[2]+"/"+pathArr[3] == `web/plugin` && len(webPlugin) == 0 {
-			webPlugin = path.Join(pathArr[0], pathArr[1], pathArr[2], pathArr[3])
+			webPlugin = filepath.Join(pathArr[0], pathArr[1], pathArr[2], pathArr[3])
 		}
 	}
 	if len(serverPlugin) == 0 && len(webPlugin) == 0 {
